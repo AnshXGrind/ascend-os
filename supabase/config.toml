@@ -1,0 +1,5 @@
+project_id = "ascend-os"
+
+[functions.send-reminders]
+# The function authenticates every cron request using CRON_SECRET itself.
+verify_jwt = false

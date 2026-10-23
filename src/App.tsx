@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, BookOpen, BriefcaseBusiness,
   CalendarClock, Check, CheckCheck, ChevronDown, CircleHelp, Clock3, Code2, Command,
@@ -22,7 +22,21 @@ const initialResources: Resource[] = []
 const initialGoals: Goal[] = []
 const initialSkills: Skill[] = []
 const initialProblems: Problem[] = []
-function getSaved<T>(key:string, fallback:T):T { try { const raw=localStorage.getItem(key); if(!raw)return fallback; const value=JSON.parse(raw); if(!Array.isArray(value))return fallback; const seededIds=new Set(['t1','t2','t3','t4','r1','r2','r3','r4','r5','r6','g1','g2','g3']); const clean=value.filter((item:any)=>!(item?.id&&seededIds.has(item.id))); if(clean.length!==value.length)localStorage.setItem(key,JSON.stringify(clean)); return clean as T } catch { return fallback } }
+function getSaved<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return fallback
+    const value = JSON.parse(raw)
+    if (!Array.isArray(value)) return fallback
+    // Remove only IDs known to belong to the former sample dataset. Never delete by user-facing name.
+    const legacySampleIds = new Set(['t1', 't2', 't3', 't4', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'g1', 'g2', 'g3'])
+    const clean = value.filter((item: any) => !(item?.id && legacySampleIds.has(item.id)))
+    if (clean.length !== value.length) localStorage.setItem(key, JSON.stringify(clean))
+    return clean as T
+  } catch {
+    return fallback
+  }
+}
 function IconBadge({ children, className='' }: { children:ReactNode; className?:string }) { return <span className={`icon-badge ${className}`}>{children}</span> }
 function Progress({ value, tone='violet' }: { value:number; tone?:string }) { return <div className={`progress ${tone}`}><span style={{width:`${Math.max(0,Math.min(100,value))}%`}} /></div> }
 function prettyDate(iso:string) { if (!iso) return 'No date'; const d=new Date(`${iso}T12:00:00`); return d.toLocaleDateString('en-IN',{day:'numeric',month:'short'}) }
@@ -161,7 +175,7 @@ export default function App() {
       <div className="sidebar-spacer"/>
       <div className="streak-card"><div className="streak-icon"><Flame size={18}/></div><div><strong>Build your streak</strong><p>Small steps, every day.</p></div><ArrowUpRight size={15}/></div>
       <button className="nav-item settings-link" onClick={()=>setPage('Integrations')}><Settings2 size={17}/><span>Settings & data</span></button>
-      <div className="sidebar-foot"><span className="status-dot"/> Your progress is saved locally</div>
+      <div className="sidebar-foot"><span className="status-dot"/> Your progress syncs to your cloud workspace</div>
     </aside>
 
     <main className="main-area">
@@ -201,7 +215,7 @@ export default function App() {
           <section className="panel integration-panel"><div className="panel-heading"><div><span className="section-kicker">NEXT CONNECTORS</span><h2>Learning platforms</h2><p className="panel-subtitle">Connector status is explicit, so imported and manually tracked data won't be confused.</p></div></div><div className="connector-list"><Connector name="YouTube" detail="Playlist metadata via YouTube Data API v3; OAuth needed for personal/private playlists." badge="API key / OAuth" symbol={<span className="yt-logo">â–¶</span>}/><Connector name="LeetCode" detail="No stable general-purpose official public API for this use case; start with manual logging or a carefully reviewed third-party integration." badge="Manual first" symbol={<Code2 size={18}/>}/><Connector name="Striver / takeUforward" detail="Track sheet topics and completion manually; use course links and personal checklists." badge="Resource tracking" symbol={<Target size={18}/>}/><Connector name="Coursera" detail="Personal learning tracking can start with links and manual progress; API access may depend on an organizational agreement." badge="Access dependent" symbol={<GraduationCap size={18}/>}/><Connector name="MIT OCW / Stanford Online" detail="Save course links and milestones now; add provider-specific imports where an appropriate interface exists." badge="Resource tracking" symbol={<BookOpen size={18}/>}/><Connector name="Google Skills / NVIDIA" detail="Catalog courses and record completions; automate only through supported access methods." badge="Future connector" symbol={<Zap size={18}/>}/></div></section>
           <section className="panel integration-panel"><div className="panel-heading"><div><span className="section-kicker">YOUR DATA</span><h2>Portability & reminders</h2></div></div><div className="data-action"><div className="data-action-icon"><ExternalLink size={18}/></div><div><strong>Export local backup</strong><p>Download your tasks, saved resources, goals, and skill ratings as a JSON file.</p></div><button className="secondary-button" onClick={exportData}>Export JSON</button></div><div className="data-action"><div className="data-action-icon"><BookOpen size={18}/></div><div><strong>Restore from backup</strong><p>Import an earlier Ascend JSON backup. Merge or replace after validating the records.</p></div><button className="secondary-button" onClick={()=>backupInputRef.current?.click()}>Import JSON</button><input ref={backupInputRef} type="file" accept="application/json,.json" onChange={importBackup} style={{display:"none"}}/></div><div className="data-action"><div className="data-action-icon"><Bell size={18}/></div><div><strong>Browser reminders</strong><p>While the app is open, scheduled tasks can trigger notifications if permission is granted.</p></div><button className="secondary-button" onClick={enableNotifications}>Enable</button></div><div className="warning-note"><CircleHelp size={17}/><p><strong>Reminder limitation:</strong> this MVP checks due times only while the page is open. To send reminders when the browser is closed, deploy a backend scheduler and a delivery channel such as email or push notifications.</p></div></section>
         </div>}
-        <footer className="footer"><span>ASCEND OS <span className="footer-dot">Â·</span> BUILD YOUR OWN MOMENTUM</span><span>Prototype v0.1 <span className="footer-dot">Â·</span> Stored on this device</span></footer>
+        <footer className="footer"><span>ASCEND OS <span className="footer-dot">Â·</span> BUILD YOUR OWN MOMENTUM</span><span>Prototype v0.1 <span className="footer-dot">Â·</span> Cloud workspace</span></footer>
       </div>
     </main>
 
