@@ -190,7 +190,7 @@ export default function CloudWorkspace() {
         setMessage(error instanceof Error ? error.message : 'Cloud sync failed. Check your connection.')
       } finally { syncBusy.current = false }
     }
-    const timer = window.setInterval(() => { void sync() }, 2000)
+    const timer = window.setInterval(() => { void sync() }, 5000)
     const onFocus = () => { void sync() }
     window.addEventListener('focus', onFocus)
     return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
