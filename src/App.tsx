@@ -51,6 +51,7 @@ export default function App() {
   const [query,setQuery]=useState('')
   const [resourceCategory,setResourceCategory]=useState('All categories')
   const backupInputRef=useRef<HTMLInputElement>(null)
+  const searchInputRef=useRef<HTMLInputElement>(null)
   const [showTask,setShowTask]=useState(false)
   const [showResource,setShowResource]=useState(false)
   const [showGoal,setShowGoal]=useState(false)
@@ -80,12 +81,22 @@ export default function App() {
   useEffect(()=>{if(ytKey)localStorage.setItem('ascend.youtubeKey',ytKey);else localStorage.removeItem('ascend.youtubeKey')},[ytKey])
   useEffect(()=>{if(cfHandle)localStorage.setItem('ascend.cfHandle',cfHandle)},[cfHandle])
   useEffect(()=>{
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){
+        event.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown',onKeyDown)
+    return ()=>window.removeEventListener('keydown',onKeyDown)
+  },[])
+  useEffect(()=>{
     const check=()=>{
       const now=new Date(); const minute=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
       const today=todayISO()
       tasks.filter(t=>!t.done&&t.due===today&&t.time===minute).forEach(t=>{
         const key=`ascend.notified.${t.id}.${today}.${minute}`
-        if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1'); if('Notification'in window&&Notification.permission==='granted')new Notification(`Ascend reminder: ${t.title}`,{body:`${t.area} â€¢ scheduled for ${t.time}`}); setNotice(`Reminder due now: ${t.title}`)}
+        if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1'); if('Notification'in window&&Notification.permission==='granted')new Notification(`Ascend reminder: ${t.title}`,{body:`${t.area} - scheduled for ${t.time}`}); setNotice(`Reminder due now: ${t.title}`)}
       })
     }
     check(); const timer=window.setInterval(check,15000); return ()=>window.clearInterval(timer)
@@ -139,19 +150,36 @@ export default function App() {
   function updateResourceStatus(id:string,status:Resource['status']){setResources(old=>old.map(r=>r.id===id?{...r,status,progress:status==='Completed'?100:status==='Queued'?0:r.progress}:r))}
   function exportData(){const payload={schemaVersion:1,exportedAt:new Date().toISOString(),tasks,resources,goals,skills,problems};const a=document.createElement('a');const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.href=url;a.download='ascend-os-backup.json';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);setNotice('Backup exported')}
   async function importBackup(e:ChangeEvent<HTMLInputElement>){
-    const input=e.currentTarget;const file=input.files?.[0];if(!file)return
+    const input=e.currentTarget
+    const file=input.files?.[0]
+    if(!file)return
     try{
-      const payload=JSON.parse(await file.text()) as Record<string,unknown>;const keys=['tasks','resources','goals','skills','problems']
-      if(!keys.every(k=>Array.isArray(payload[k])&&(payload[k] as unknown[]).every(item=>item!==null&&typeof item==='object'&&!Array.isArray(item))))throw new Error('This file is not a valid Ascend OS backup.')
-      const incoming=payload as unknown as {tasks:Task[];resources:Resource[];goals:Goal[];skills:Skill[];problems:Problem[]}
-      if(!incoming.tasks.every(x=>typeof x.id==='string'&&typeof x.title==='string')||!incoming.resources.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&typeof x.url==='string')||!incoming.goals.every(x=>typeof x.id==='string'&&typeof x.title==='string')||!incoming.skills.every(x=>typeof x.name==='string')||!incoming.problems.every(x=>typeof x.id==='string'&&typeof x.title==='string'))throw new Error('Backup records failed validation. No data was changed.')
+      if(file.size>10*1024*1024)throw new Error('Backup files must be 10 MB or smaller.')
+      const payload=JSON.parse(await file.text()) as Record<string,unknown>
+      // CloudWorkspace exports { schemaVersion, exportedAt, data: {...} };
+      // older App exports use the same arrays at the top level.
+      const source=payload.data&&typeof payload.data==='object'&&!Array.isArray(payload.data)
+        ? payload.data as Record<string,unknown>
+        : payload
+      const keys=['tasks','resources','goals','skills','problems']
+      if(!keys.every(k=>Array.isArray(source[k])&&(source[k] as unknown[]).every(item=>item!==null&&typeof item==='object'&&!Array.isArray(item))))throw new Error('This file is not a valid Ascend OS backup.')
+      const incoming=source as unknown as {tasks:Task[];resources:Resource[];goals:Goal[];skills:Skill[];problems:Problem[]}
+      if(!incoming.tasks.every(x=>typeof x.id==='string'&&typeof x.title==='string')
+        ||!incoming.resources.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&typeof x.url==='string')
+        ||!incoming.goals.every(x=>typeof x.id==='string'&&typeof x.title==='string')
+        ||!incoming.skills.every(x=>typeof x.name==='string')
+        ||!incoming.problems.every(x=>typeof x.id==='string'&&typeof x.title==='string'))throw new Error('Backup records failed validation. No data was changed.')
       const mode=window.prompt('Type MERGE to add backup data without duplicate IDs, or REPLACE to replace all current records.','MERGE')?.trim().toUpperCase()
       if(mode==='REPLACE'){
         if(!window.confirm('Replace all current tasks, resources, goals, skills and DSA problems with this backup? Export a backup first if unsure.'))return
         setTasks(incoming.tasks);setResources(incoming.resources);setGoals(incoming.goals);setSkills(incoming.skills);setProblems(incoming.problems)
       }else if(mode==='MERGE'){
         const merge=<T,>(old:T[],fresh:T[],key:(item:T)=>string)=>{const map=new Map(old.map(item=>[key(item),item]));fresh.forEach(item=>{const k=key(item);if(!map.has(k))map.set(k,item)});return Array.from(map.values())}
-        setTasks(old=>merge(old,incoming.tasks,x=>x.id));setResources(old=>merge(old,incoming.resources,x=>x.id));setGoals(old=>merge(old,incoming.goals,x=>x.id));setSkills(old=>merge(old,incoming.skills,x=>x.name.trim().toLowerCase()));setProblems(old=>merge(old,incoming.problems,x=>x.id))
+        setTasks(old=>merge(old,incoming.tasks,x=>x.id))
+        setResources(old=>merge(old,incoming.resources,x=>x.id))
+        setGoals(old=>merge(old,incoming.goals,x=>x.id))
+        setSkills(old=>merge(old,incoming.skills,x=>x.name.trim().toLowerCase()))
+        setProblems(old=>merge(old,incoming.problems,x=>x.id))
       }else{return}
       setNotice(mode==='REPLACE'?'Backup restored':'Backup merged with current data')
     }catch(err){setNotice(`Backup import failed: ${err instanceof Error?err.message:'Invalid file'}`)}finally{input.value=''}
@@ -179,7 +207,7 @@ export default function App() {
     </aside>
 
     <main className="main-area">
-      <header className="topbar"><div className="top-left"><button className="icon-button mobile-menu" onClick={()=>setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="top-actions"><label className="search-box"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search resources..."/><kbd>âŒ˜ K</kbd></label><button className="icon-button notification-button" title="Enable notifications" onClick={enableNotifications}><Bell size={18}/><span/></button><div className="user-mini">A</div></div></header>
+      <header className="topbar"><div className="top-left"><button className="icon-button mobile-menu" onClick={()=>setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="top-actions"><label className="search-box"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search resources..."/><kbd>Ctrl K</kbd></label><button className="icon-button notification-button" title="Enable notifications" onClick={enableNotifications}><Bell size={18}/><span/></button><div className="user-mini">A</div></div></header>
       <div className="page-wrap">
         {notice&&<div className="toast"><Check size={15}/>{notice}<button onClick={()=>setNotice('')}><X size={14}/></button></div>}
         <div className="page-heading"><div><div className="eyebrow"><span className="live-dot"/>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div><h1>{page==='Overview'?`${greet}.`:pageTitle}</h1><p>{page==='Overview'?'Make today count. Consistency compounds into capability.':page==='Planner'?'Every goal becomes easier when the next action is clear.':page==='Learning library'?'One place for everything you want to learn, build, and master.':page==='DSA tracker'?'Log your own problems, attempts and revision dates.':page==='Goals & skills'?'Track outcomes, not just hours spent watching content.':'Bring your learning activity into one connected workspace.'}</p></div><div className="heading-actions">{page==='Planner'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Add task</button>:page==='Learning library'?<button className="primary-button" onClick={()=>setShowResource(true)}><Plus size={17}/> Add resource</button>:page==='DSA tracker'?<button className="primary-button" onClick={()=>setShowProblem(true)}><Plus size={17}/> Add problem</button>:page==='Goals & skills'?<button className="primary-button" onClick={()=>setShowGoal(true)}><Plus size={17}/> Add goal</button>:page==='Overview'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Plan a task</button>:page==='Integrations'?<button className="secondary-button" onClick={exportData}><ExternalLink size={15}/> Export backup</button>:null}</div></div>
