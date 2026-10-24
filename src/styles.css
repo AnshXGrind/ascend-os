@@ -53,3 +53,107 @@
 .cloud-status-action:hover{background:#242d3c;color:white}
 .cloud-status-action:disabled{opacity:.6;cursor:wait}
 @media(max-width:700px){.cloud-statusbar{gap:7px}.cloud-status-text{order:3;width:100%}.cloud-user-email{margin-left:0}.cloud-inline-message{max-width:100%}.cloud-auth-card{padding:23px}}
+
+/* ASCEND HYBRID THEME V1 */
+/* Warm mineral canvas + paper-like cards + deep navy navigation/status. */
+:root{
+  color-scheme:light;
+  --bg:#eeede7;
+  --panel:#fffdf8;
+  --panel2:#f7f4ed;
+  --line:#dcd8ce;
+  --muted:#687286;
+  --text:#273247;
+  --violet:#7463df;
+  --green:#168565;
+  --blue:#3d72b8;
+  --orange:#b97534;
+}
+html{background:#eeede7;color:#273247}
+body,.app-shell{background:#eeede7;color:#273247}
+.main-area{background:#eeede7}
+/* Keep a small amount of dark chrome for contrast; the working canvas is light. */
+.sidebar{background:#1d2939;border-right-color:#344255}
+.profile-card{background:#263449;border-color:#3b4a60}
+.streak-card{background:linear-gradient(120deg,#302c4b,#243044);border-color:#45435e}
+.sidebar-foot{border-top-color:#354155;color:#a5afbd}
+.topbar{background:rgba(248,247,242,.96);border-bottom-color:#d9d6ce;color:#344057}
+.breadcrumb{color:#737c8e}.breadcrumb span{color:#a5a9b0}.breadcrumb strong{color:#273247}
+.search-box{background:#fffdf8;border-color:#d7d4cc;color:#748093}
+.search-box input{color:#273247}.search-box input::placeholder{color:#858b96}
+.search-box kbd{border-color:#dedbd4;color:#70798a;background:#f4f1ea}
+.icon-button{color:#657187}.icon-button:hover{background:#e9e6de;color:#29344a}
+.notification-button{border-color:#d6d2c9}
+.user-mini{border-color:#bdb3f1;background:#e8e2ff;color:#5d4ac7}
+.page-heading h1{color:#202b3e}.page-heading p{color:#657187}.eyebrow{color:#717b8e}
+.stat-card,.panel{border-color:#d9d6cc;background:linear-gradient(145deg,#fffdf8,#f8f6f0);box-shadow:0 10px 30px rgba(43,48,60,.055)}
+.stat-value{color:#202b3e}.stat-value span{color:#6f7a8e}
+.stat-label{color:#4f5b70}.stat-foot{color:#758094}
+.stat-trend{color:#167f60}.stat-chip{color:#67748a}
+.progress{background:#e1ded7}.progress>span{background:linear-gradient(90deg,#7463df,#a297f1)}
+.progress.green>span{background:linear-gradient(90deg,#168565,#66bd9c)}
+.progress.blue>span{background:linear-gradient(90deg,#3d72b8,#83addd)}
+.progress.orange>span{background:linear-gradient(90deg,#b97534,#e7b57d)}
+.priority-pill{background:#e9e6df;color:#536075}
+.priority-pill.high,.priority-pill.danger{background:#f9e3e4;color:#a2394b}
+.priority-pill.medium{background:#f7ead7;color:#8a5b23}
+.priority-pill.low{background:#ddf1e7;color:#17684e}
+.focus-ring:before{background:#fffdf8}
+.focus-summary,.task-row{border-bottom-color:#e4e0d7}
+.focus-copy>strong,.task-main>strong{color:#2b3549}
+.focus-copy p{color:#657187}.task-meta{color:#6c778b}
+.check-control{background:#fffdf8;border-color:#b8bec8;color:#fff}
+.task-done .task-main>strong{color:#8b92a0}
+.week-panel,.goal-panel,.quick-panel{color:#273247}
+.bar-track{background:#e5e1d9}.day-date{color:#4d5a70}.day-label{color:#747e8e}
+.week-insight{background:#f0edf9;border-color:#ded8f2}.week-insight strong{color:#34304b}.week-insight p{color:#6e6b80}
+.weekly-target>div{color:#687388}.weekly-target strong{color:#293449}
+.goal-title-row strong{color:#293449}.goal-main p{color:#6d788c}
+.continue-main strong{color:#293449}.continue-main>span{color:#6b778c}
+.bottom-note{background:#f4f1fa;border-color:#ddd7ef}.bottom-note p{color:#626c81}.bottom-note p strong{color:#33344b}
+.empty-state{color:#6d788b}.empty-state strong{color:#303b50}.empty-state p{color:#6f7a8d}
+.full-panel{background:linear-gradient(145deg,#fffdf8,#f8f6f0)}
+.panel-heading h2{color:#253147}.panel-subtitle{color:#6b7689}.section-kicker{color:#777f91}
+.planner-overview>div{background:#f3f0e8;border-color:#dedacf}.planner-overview span{color:#667287}.planner-overview strong{color:#283349}
+.planner-section-title{border-bottom-color:#e2ded5}.planner-section-title h3{color:#303b50}.planner-section-title span,.empty-line{color:#6c778b}
+.library-toolbar{border-color:#e0dcd3}.library-count{color:#687388}.library-count strong{color:#283449}
+.select-control,.resource-card-footer select,.modal-form select,.modal-form input{background:#fffdf8;border-color:#d4d0c7;color:#2b3548}
+.resource-card,.goal-card{background:linear-gradient(145deg,#fffdf8,#f5f2eb);border-color:#dedacf}
+.resource-card h3,.goal-card h3{color:#293449}.resource-card>p,.goal-card>p{color:#6d788b}
+.resource-progress-label{color:#677389}.resource-progress-label strong{color:#303b50}
+.resource-card-footer .text-link,.text-link{color:#6957ce}.text-link:hover{color:#4d3eab}
+.integration-callout{background:#f0edf9;border-color:#ddd7ef}.integration-callout strong{color:#33344b}.integration-callout p{color:#666d81}
+.goal-card .goal-target{color:#737d8e}.goal-title-row span,.goal-progress-row strong,.skill-heading span{color:#6656c6}
+.skill-heading strong{color:#303b50}.skill-row{border-bottom-color:#e0dcd3}.skill-row p{color:#6c778b}
+.connector-row{border-bottom-color:#e0dcd3}.connector-main strong{color:#293449}.connector-main p{color:#687388}
+.connector-symbol{background:#eeebf6;border-color:#ddd7ef;color:#6756cc}
+.connector-badge{background:#f0eee8;border-color:#dcd7cd;color:#566176}
+.connect-form{background:#f5f2eb;border-color:#dedacf}.connect-form label,.modal-form label{color:#536075}
+.connect-input input,.standalone-input{background:#fffdf8;border-color:#d4d0c7;color:#273247}
+.connect-form small{color:#69758a}.cf-stat-grid>div{background:#f5f2eb;border-color:#dedacf}.cf-stat-grid span{color:#677287}.cf-stat-grid strong{color:#293449}
+.data-action{border-bottom-color:#e0dcd3}.data-action strong{color:#2d384d}.data-action p{color:#6d788b}
+.warning-note{background:#fbf1df;border-color:#eed7af;color:#8b5d2c}.warning-note p{color:#765c3c}.warning-note strong{color:#68451f}
+.modal-backdrop{background:rgba(24,31,43,.54)}.modal{background:#fbf9f3;border-color:#d8d3c8;box-shadow:0 30px 90px rgba(22,30,43,.24)}
+.modal-heading h2{color:#222d41}.modal-heading p{color:#687389}.modal-form input::placeholder{color:#8b919b}
+.primary-button,.cloud-primary{background:#8170e5;border-color:#7463d7;color:#fff;box-shadow:0 5px 16px rgba(95,76,191,.14)}
+.primary-button:hover,.cloud-primary:hover{background:#705fd0;color:#fff}
+.secondary-button{border-color:#d1cdc4;background:#f4f1ea;color:#374258}.secondary-button:hover{background:#e8e4db;color:#202b3e}
+.wide-ghost{border-color:#d2ccea;color:#6655ca}.wide-ghost:hover{background:#efebfb}
+/* Hybrid cloud/auth shell: retain a deep navy frame with a warm, readable card. */
+.cloud-auth-screen{background:radial-gradient(circle at 50% 0%,#3d3a5e 0,#1b2637 45%,#151d2b 100%);color:#273247}
+.cloud-auth-card{background:linear-gradient(145deg,#fffdf8,#f4f1e9);border-color:#d8d3c8;box-shadow:0 24px 80px rgba(5,12,24,.28)}
+.cloud-auth-card h1{color:#222d41}.cloud-copy{color:#637087}.cloud-eyebrow{color:#6958cf}
+.cloud-auth-form label{color:#4f5b70}.cloud-auth-form input{background:#fff;border-color:#d4d0c7;color:#273247}
+.cloud-secondary,.cloud-status-action{border-color:#d0ccc2;background:#f2efe8;color:#374258}
+.cloud-secondary:hover,.cloud-status-action:hover{background:#e5e1d8;color:#202b3e}
+.cloud-switch{color:#6856cd}.cloud-footnote{color:#687388}.cloud-steps{color:#58647a}
+.cloud-steps code,.cloud-copy code{color:#6352c0;background:#eee9fc;border-radius:4px;padding:1px 3px}
+.cloud-message{color:#17684e;background:#e1f2e8;border-color:#b7dfc8}.cloud-error{color:#9a3545;background:#f9e2e4;border-color:#edb9c0}
+.cloud-spinner{border-color:#dcd8ce;border-top-color:#7664dc}
+.cloud-statusbar{background:#1d2939;border-bottom-color:#344255;color:#d4dae4}
+.cloud-statusbar>strong{color:#d1c9ff}.cloud-status-text{color:#82d9b5}.cloud-user-email{color:#d4dae4}
+.cloud-status-action{border-color:#49576c;background:#29374b;color:#e2e7ef}.cloud-status-action:hover{background:#35465d;color:#fff}
+.error-box{color:#9a3545;background:#f9e2e4;border-color:#edb9c0}
+/* Clear focus rings and comfortable hover states. */
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #8878e8;outline-offset:2px}
+@media(max-width:650px){.cloud-auth-screen{padding:14px}.cloud-auth-card{padding:22px}.page-heading{gap:10px}.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

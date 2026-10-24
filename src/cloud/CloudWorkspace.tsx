@@ -78,7 +78,7 @@ export default function CloudWorkspace() {
   const [workspaceReady, setWorkspaceReady] = useState(false)
   const [workspaceError, setWorkspaceError] = useState('')
   const [retryIndex, setRetryIndex] = useState(0)
-  const [syncStatus, setSyncStatus] = useState('Preparing workspaceâ€¦')
+  const [syncStatus, setSyncStatus] = useState('Preparing workspace...')
   const [lastSaved, setLastSaved] = useState('')
   const [remoteConflict, setRemoteConflict] = useState<WorkspaceData | null>(null)
   const [conflictBusy, setConflictBusy] = useState(false)
@@ -104,7 +104,7 @@ export default function CloudWorkspace() {
     if (!supabase || !userId) { setWorkspaceReady(false); return }
     let active = true
     async function bootstrap() {
-      setWorkspaceReady(false); setWorkspaceError(''); setSyncStatus('Loading cloud dataâ€¦')
+      setWorkspaceReady(false); setWorkspaceError(''); setSyncStatus('Loading cloud data...')
       try {
         const migrationKey = `ascend.cloud.migrated.${userId}`
         const previousOwner = localStorage.getItem(OWNER_KEY)
@@ -159,7 +159,7 @@ export default function CloudWorkspace() {
             setSyncStatus('Changes on another device need review')
             return
           }
-          setSyncStatus('Saving changesâ€¦')
+          setSyncStatus('Saving changes...')
           const { data, error } = await supabase!.from('user_workspaces').upsert({ user_id: userId, data: current, timezone: localTimeZone(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).select('updated_at').single()
           if (error) throw error
           lastLocalJson.current = encoded
@@ -186,7 +186,7 @@ export default function CloudWorkspace() {
           }
         }
       } catch (error) {
-        setSyncStatus('Sync paused â€” changes remain on this device')
+        setSyncStatus('Sync paused - changes remain on this device')
         setMessage(error instanceof Error ? error.message : 'Cloud sync failed. Check your connection.')
       } finally { syncBusy.current = false }
     }
@@ -204,11 +204,11 @@ export default function CloudWorkspace() {
         const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin } })
         if (error) throw error
         if (!data.session) setMessage('Account created. Check your email to confirm the account, then sign in.')
-        else setMessage('Account created. Preparing your private workspaceâ€¦')
+        else setMessage('Account created. Preparing your private workspace...')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (error) throw error
-        setMessage('Signed in. Loading your cloud workspaceâ€¦')
+        setMessage('Signed in. Loading your cloud workspace...')
       }
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Authentication failed') }
     finally { setAuthBusy(false) }
@@ -233,10 +233,10 @@ export default function CloudWorkspace() {
     writeLocal(remoteConflict); setRemoteConflict(null); window.location.reload()
   }
 
-  if (!supabase) return <div className="cloud-auth-screen"><div className="cloud-auth-card"><div className="cloud-brand-mark">A</div><p className="cloud-eyebrow">ASCEND OS Â· CLOUD SETUP</p><h1>Connect your workspace</h1><p className="cloud-copy">Add your Supabase project URL and publishable/anon key to <code>.env.local</code>. This app will then use hosted authentication and PostgreSQL instead of acting as a local-only workspace.</p><ol className="cloud-steps"><li>Create a Supabase project.</li><li>Run <code>supabase/migrations/001_cloud_workspace.sql</code> in its SQL Editor.</li><li>Copy <code>.env.example</code> to <code>.env.local</code> and fill in both values.</li><li>Restart Vite, or deploy the same values in your Vercel environment settings.</li></ol><button className="cloud-secondary" onClick={() => downloadBackup()}>Download my local data backup</button><p className="cloud-footnote">No service-role key belongs in the browser. Only the public publishable/anon key is used here, protected by database row-level security.</p></div></div>
-  if (authLoading) return <div className="cloud-auth-screen"><div className="cloud-auth-card"><div className="cloud-spinner"/><h1>Restoring sessionâ€¦</h1></div></div>
-  if (!session) return <div className="cloud-auth-screen"><div className="cloud-auth-card"><div className="cloud-brand-mark">A</div><p className="cloud-eyebrow">ASCEND OS Â· YOUR PERSONAL LEARNING OS</p><h1>{mode === 'sign-in' ? 'Welcome back.' : 'Create your workspace.'}</h1><p className="cloud-copy">Sign in to keep your goals, tasks, skills, resources and DSA history in your private cloud workspace.</p><form className="cloud-auth-form" onSubmit={submitAuth}><label>Email address<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"/></label><label>Password<input type="password" autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters"/></label><button className="cloud-primary" type="submit" disabled={authBusy}>{authBusy ? 'Please waitâ€¦' : mode === 'sign-in' ? 'Sign in' : 'Create account'}</button></form>{message && <p className="cloud-message">{message}</p>}<button className="cloud-switch" onClick={() => { setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in'); setMessage('') }}>{mode === 'sign-in' ? 'New to Ascend OS? Create an account' : 'Already have an account? Sign in'}</button><button className="cloud-secondary" onClick={() => downloadBackup()}>Download local JSON backup</button></div></div>
+  if (!supabase) return <div className="cloud-auth-screen"><div className="cloud-auth-card"><div className="cloud-brand-mark">A</div><p className="cloud-eyebrow">ASCEND OS  |  CLOUD SETUP</p><h1>Connect your workspace</h1><p className="cloud-copy">Add your Supabase project URL and publishable/anon key to <code>.env.local</code>. This app will then use hosted authentication and PostgreSQL instead of acting as a local-only workspace.</p><ol className="cloud-steps"><li>Create a Supabase project.</li><li>Run <code>supabase/migrations/001_cloud_workspace.sql</code> in its SQL Editor.</li><li>Copy <code>.env.example</code> to <code>.env.local</code> and fill in both values.</li><li>Restart Vite, or deploy the same values in your Vercel environment settings.</li></ol><button className="cloud-secondary" onClick={() => downloadBackup()}>Download my local data backup</button><p className="cloud-footnote">No service-role key belongs in the browser. Only the public publishable/anon key is used here, protected by database row-level security.</p></div></div>
+  if (authLoading) return <div className="cloud-auth-screen"><div className="cloud-auth-card"><div className="cloud-spinner"/><h1>Restoring session...</h1></div></div>
+  if (!session) return <div className="cloud-auth-screen"><div className="cloud-auth-card"><div className="cloud-brand-mark">A</div><p className="cloud-eyebrow">ASCEND OS  |  YOUR PERSONAL LEARNING OS</p><h1>{mode === 'sign-in' ? 'Welcome back.' : 'Create your workspace.'}</h1><p className="cloud-copy">Sign in to keep your goals, tasks, skills, resources and DSA history in your private cloud workspace.</p><form className="cloud-auth-form" onSubmit={submitAuth}><label>Email address<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"/></label><label>Password<input type="password" autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters"/></label><button className="cloud-primary" type="submit" disabled={authBusy}>{authBusy ? 'Please wait...' : mode === 'sign-in' ? 'Sign in' : 'Create account'}</button></form>{message && <p className="cloud-message">{message}</p>}<button className="cloud-switch" onClick={() => { setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in'); setMessage('') }}>{mode === 'sign-in' ? 'New to Ascend OS? Create an account' : 'Already have an account? Sign in'}</button><button className="cloud-secondary" onClick={() => downloadBackup()}>Download local JSON backup</button></div></div>
   if (!workspaceReady) return <div className="cloud-auth-screen"><div className="cloud-auth-card"><div className="cloud-spinner"/><h1>Preparing your private workspace</h1><p className="cloud-copy">Migrating local records safely and connecting to PostgreSQL.</p>{workspaceError && <><p className="cloud-error">{workspaceError}</p><button className="cloud-primary" onClick={() => setRetryIndex(x => x + 1)}>Retry</button><button className="cloud-secondary" onClick={() => downloadBackup()}>Download local data backup</button><button className="cloud-switch" onClick={() => void signOut()}>Sign out</button></>}</div></div>
 
-  return <div className="cloud-workspace-shell"><div className="cloud-statusbar"><span className="cloud-online-dot"/><strong>ASCEND CLOUD</strong><span className="cloud-status-text">{syncStatus}{lastSaved ? ` Â· ${lastSaved}` : ''}</span>{message && <span className="cloud-inline-message" title={message}>{message}</span>}{remoteConflict && <><button onClick={() => downloadBackup()} className="cloud-status-action">Backup local</button><button onClick={() => void mergeCloudAndLocal()} className="cloud-status-action" disabled={conflictBusy}>{conflictBusy ? 'Mergingâ€¦' : 'Merge copies'}</button><button onClick={useCloudCopy} className="cloud-status-action">Use cloud copy</button></>}<button className="cloud-status-action" onClick={() => downloadBackup()}>Backup</button><span className="cloud-user-email">{session.user.email}</span><button className="cloud-status-action" onClick={() => void signOut()}>Sign out</button></div><App /></div>
+  return <div className="cloud-workspace-shell"><div className="cloud-statusbar"><span className="cloud-online-dot"/><strong>ASCEND CLOUD</strong><span className="cloud-status-text">{syncStatus}{lastSaved ? `  |  ${lastSaved}` : ''}</span>{message && <span className="cloud-inline-message" title={message}>{message}</span>}{remoteConflict && <><button onClick={() => downloadBackup()} className="cloud-status-action">Backup local</button><button onClick={() => void mergeCloudAndLocal()} className="cloud-status-action" disabled={conflictBusy}>{conflictBusy ? 'Merging...' : 'Merge copies'}</button><button onClick={useCloudCopy} className="cloud-status-action">Use cloud copy</button></>}<button className="cloud-status-action" onClick={() => downloadBackup()}>Backup</button><span className="cloud-user-email">{session.user.email}</span><button className="cloud-status-action" onClick={() => void signOut()}>Sign out</button></div><App /></div>
 }

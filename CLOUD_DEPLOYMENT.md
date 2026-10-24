@@ -1,4 +1,4 @@
-# Ascend OS â€” Cloud Deployment
+# Ascend OS - Cloud Deployment
 
 This upgrade adds Supabase Auth + PostgreSQL-backed cloud workspace sync, plus a scheduled email reminder Edge Function. It does not create your cloud project or deploy it automatically: credentials and project setup must be supplied by you.
 
@@ -6,7 +6,7 @@ This upgrade adds Supabase Auth + PostgreSQL-backed cloud workspace sync, plus a
 
 1. Create a project at https://supabase.com/dashboard.
 2. Open SQL Editor and run `supabase/migrations/001_cloud_workspace.sql`.
-3. In Project Settings â†’ API, copy the Project URL and the public publishable key (or legacy anon key). Do **not** use a service-role/secret key in the browser.
+3. In Project Settings -> API, copy the Project URL and the public publishable key (or legacy anon key). Do **not** use a service-role/secret key in the browser.
 4. Copy `.env.example` to `.env.local` and set:
 
 ```env
@@ -14,9 +14,9 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_PUBLISHABLE_OR_ANON_KEY
 ```
 
-5. Restart the local dev server (`npm run dev`). For Vercel, add the same two `VITE_` variables in Project Settings â†’ Environment Variables, then redeploy.
+5. Restart the local dev server (`npm run dev`). For Vercel, add the same two `VITE_` variables in Project Settings -> Environment Variables, then redeploy.
 
-The frontend requires authentication. New users may need to confirm their email depending on Supabase Auth settings. Configure the production site URL and allowed redirect URLs under Authentication â†’ URL Configuration. Add both your Vercel URL and any custom domain.
+The frontend requires authentication. New users may need to confirm their email depending on Supabase Auth settings. Configure the production site URL and allowed redirect URLs under Authentication -> URL Configuration. Add both your Vercel URL and any custom domain.
 
 ## 2. Test the cloud workspace
 
@@ -62,7 +62,7 @@ npx.cmd supabase functions deploy send-reminders
 
 5. Open `supabase/schedules/reminders-cron.example.sql`, replace the three placeholders (project URL, public publishable/anon key, and the exact `$CRON_SECRET` from step 2), and run the SQL once in Supabase SQL Editor. The SQL stores the invocation values in Supabase Vault and schedules a request every minute. Never commit real secrets or the edited SQL containing secrets.
 
-6. Check Supabase â†’ Edge Functions â†’ `send-reminders` logs and Cron job run history. A task must be due within the last five minutes (using the workspace's time zone) and not already logged in `reminder_deliveries` to send. Email provider failures are returned in function logs/response for investigation.
+6. Check Supabase -> Edge Functions -> `send-reminders` logs and Cron job run history. A task must be due within the last five minutes (using the workspace's time zone) and not already logged in `reminder_deliveries` to send. Email provider failures are returned in function logs/response for investigation.
 
 ## 4. Deploy the frontend to Vercel
 
