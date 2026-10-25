@@ -51,6 +51,7 @@ export default function App() {
   const [query,setQuery]=useState('')
   const [resourceCategory,setResourceCategory]=useState('All categories')
   const backupInputRef=useRef<HTMLInputElement>(null)
+  const searchInputRef=useRef<HTMLInputElement>(null)
   const [showTask,setShowTask]=useState(false)
   const [showResource,setShowResource]=useState(false)
   const [showGoal,setShowGoal]=useState(false)
@@ -80,18 +81,29 @@ export default function App() {
   useEffect(()=>{if(ytKey)localStorage.setItem('ascend.youtubeKey',ytKey);else localStorage.removeItem('ascend.youtubeKey')},[ytKey])
   useEffect(()=>{if(cfHandle)localStorage.setItem('ascend.cfHandle',cfHandle)},[cfHandle])
   useEffect(()=>{
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){
+        event.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown',onKeyDown)
+    return ()=>window.removeEventListener('keydown',onKeyDown)
+  },[])
+  useEffect(()=>{
     const check=()=>{
       const now=new Date(); const minute=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
       const today=todayISO()
       tasks.filter(t=>!t.done&&t.due===today&&t.time===minute).forEach(t=>{
         const key=`ascend.notified.${t.id}.${today}.${minute}`
-        if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1'); if('Notification'in window&&Notification.permission==='granted')new Notification(`Ascend reminder: ${t.title}`,{body:`${t.area} â€¢ scheduled for ${t.time}`}); setNotice(`Reminder due now: ${t.title}`)}
+        if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1'); if('Notification'in window&&Notification.permission==='granted')new Notification(`Ascend reminder: ${t.title}`,{body:`${t.area} - scheduled for ${t.time}`}); setNotice(`Reminder due now: ${t.title}`)}
       })
     }
     check(); const timer=window.setInterval(check,15000); return ()=>window.clearInterval(timer)
   },[tasks])
 
   const completed=tasks.filter(t=>t.done).length
+  const openTasks=tasks.filter(t=>!t.done)
   const todayTasks=tasks.filter(t=>t.due===todayISO()).sort((a,b)=>a.time.localeCompare(b.time))
   const pending=todayTasks.filter(t=>!t.done)
   const todayCompletionPct=todayTasks.length?Math.round(todayTasks.filter(t=>t.done).length/todayTasks.length*100):0
@@ -139,19 +151,36 @@ export default function App() {
   function updateResourceStatus(id:string,status:Resource['status']){setResources(old=>old.map(r=>r.id===id?{...r,status,progress:status==='Completed'?100:status==='Queued'?0:r.progress}:r))}
   function exportData(){const payload={schemaVersion:1,exportedAt:new Date().toISOString(),tasks,resources,goals,skills,problems};const a=document.createElement('a');const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.href=url;a.download='ascend-os-backup.json';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);setNotice('Backup exported')}
   async function importBackup(e:ChangeEvent<HTMLInputElement>){
-    const input=e.currentTarget;const file=input.files?.[0];if(!file)return
+    const input=e.currentTarget
+    const file=input.files?.[0]
+    if(!file)return
     try{
-      const payload=JSON.parse(await file.text()) as Record<string,unknown>;const keys=['tasks','resources','goals','skills','problems']
-      if(!keys.every(k=>Array.isArray(payload[k])&&(payload[k] as unknown[]).every(item=>item!==null&&typeof item==='object'&&!Array.isArray(item))))throw new Error('This file is not a valid Ascend OS backup.')
-      const incoming=payload as unknown as {tasks:Task[];resources:Resource[];goals:Goal[];skills:Skill[];problems:Problem[]}
-      if(!incoming.tasks.every(x=>typeof x.id==='string'&&typeof x.title==='string')||!incoming.resources.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&typeof x.url==='string')||!incoming.goals.every(x=>typeof x.id==='string'&&typeof x.title==='string')||!incoming.skills.every(x=>typeof x.name==='string')||!incoming.problems.every(x=>typeof x.id==='string'&&typeof x.title==='string'))throw new Error('Backup records failed validation. No data was changed.')
+      if(file.size>10*1024*1024)throw new Error('Backup files must be 10 MB or smaller.')
+      const payload=JSON.parse(await file.text()) as Record<string,unknown>
+      // CloudWorkspace exports { schemaVersion, exportedAt, data: {...} };
+      // older App exports use the same arrays at the top level.
+      const source=payload.data&&typeof payload.data==='object'&&!Array.isArray(payload.data)
+        ? payload.data as Record<string,unknown>
+        : payload
+      const keys=['tasks','resources','goals','skills','problems']
+      if(!keys.every(k=>Array.isArray(source[k])&&(source[k] as unknown[]).every(item=>item!==null&&typeof item==='object'&&!Array.isArray(item))))throw new Error('This file is not a valid Ascend OS backup.')
+      const incoming=source as unknown as {tasks:Task[];resources:Resource[];goals:Goal[];skills:Skill[];problems:Problem[]}
+      if(!incoming.tasks.every(x=>typeof x.id==='string'&&typeof x.title==='string')
+        ||!incoming.resources.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&typeof x.url==='string')
+        ||!incoming.goals.every(x=>typeof x.id==='string'&&typeof x.title==='string')
+        ||!incoming.skills.every(x=>typeof x.name==='string')
+        ||!incoming.problems.every(x=>typeof x.id==='string'&&typeof x.title==='string'))throw new Error('Backup records failed validation. No data was changed.')
       const mode=window.prompt('Type MERGE to add backup data without duplicate IDs, or REPLACE to replace all current records.','MERGE')?.trim().toUpperCase()
       if(mode==='REPLACE'){
         if(!window.confirm('Replace all current tasks, resources, goals, skills and DSA problems with this backup? Export a backup first if unsure.'))return
         setTasks(incoming.tasks);setResources(incoming.resources);setGoals(incoming.goals);setSkills(incoming.skills);setProblems(incoming.problems)
       }else if(mode==='MERGE'){
         const merge=<T,>(old:T[],fresh:T[],key:(item:T)=>string)=>{const map=new Map(old.map(item=>[key(item),item]));fresh.forEach(item=>{const k=key(item);if(!map.has(k))map.set(k,item)});return Array.from(map.values())}
-        setTasks(old=>merge(old,incoming.tasks,x=>x.id));setResources(old=>merge(old,incoming.resources,x=>x.id));setGoals(old=>merge(old,incoming.goals,x=>x.id));setSkills(old=>merge(old,incoming.skills,x=>x.name.trim().toLowerCase()));setProblems(old=>merge(old,incoming.problems,x=>x.id))
+        setTasks(old=>merge(old,incoming.tasks,x=>x.id))
+        setResources(old=>merge(old,incoming.resources,x=>x.id))
+        setGoals(old=>merge(old,incoming.goals,x=>x.id))
+        setSkills(old=>merge(old,incoming.skills,x=>x.name.trim().toLowerCase()))
+        setProblems(old=>merge(old,incoming.problems,x=>x.id))
       }else{return}
       setNotice(mode==='REPLACE'?'Backup restored':'Backup merged with current data')
     }catch(err){setNotice(`Backup import failed: ${err instanceof Error?err.message:'Invalid file'}`)}finally{input.value=''}
@@ -171,7 +200,7 @@ export default function App() {
     <aside className={`sidebar ${mobileNav?'show-mobile':''}`}>
       <div className="brand"><div className="brand-mark"><Sparkles size={20}/></div><div><strong>ascend<span>.</span></strong><small>PERSONAL OS</small></div><button className="icon-button mobile-close" onClick={()=>setMobileNav(false)}><X size={18}/></button></div>
       <div className="profile-card"><div className="avatar">A</div><div className="profile-copy"><strong>My workspace</strong><span>Personal development</span></div><ChevronDown size={15} className="muted"/></div>
-      <nav className="side-nav">{['WORKSPACE','GROWTH','SYSTEM'].map(section=><div className="nav-group" key={section}><span className="nav-label">{section}</span>{navItems.filter(n=>n.section===section).map(item=><button key={item.label} className={`nav-item ${page===item.label?'active':''}`} onClick={()=>{setPage(item.label);setMobileNav(false)}}>{item.icon}<span>{item.label}</span>{item.label==='Planner'&&pending.length>0&&<em>{pending.length}</em>}</button>)}</div>)}</nav>
+      <nav className="side-nav">{['WORKSPACE','GROWTH','SYSTEM'].map(section=><div className="nav-group" key={section}><span className="nav-label">{section}</span>{navItems.filter(n=>n.section===section).map(item=><button key={item.label} className={`nav-item ${page===item.label?'active':''}`} onClick={()=>{setPage(item.label);setMobileNav(false)}}>{item.icon}<span>{item.label}</span>{item.label==='Planner'&&openTasks.length>0&&<em>{openTasks.length}</em>}</button>)}</div>)}</nav>
       <div className="sidebar-spacer"/>
       <div className="streak-card"><div className="streak-icon"><Flame size={18}/></div><div><strong>Build your streak</strong><p>Small steps, every day.</p></div><ArrowUpRight size={15}/></div>
       <button className="nav-item settings-link" onClick={()=>setPage('Integrations')}><Settings2 size={17}/><span>Settings & data</span></button>
@@ -179,7 +208,7 @@ export default function App() {
     </aside>
 
     <main className="main-area">
-      <header className="topbar"><div className="top-left"><button className="icon-button mobile-menu" onClick={()=>setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="top-actions"><label className="search-box"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search resources..."/><kbd>âŒ˜ K</kbd></label><button className="icon-button notification-button" title="Enable notifications" onClick={enableNotifications}><Bell size={18}/><span/></button><div className="user-mini">A</div></div></header>
+      <header className="topbar"><div className="top-left"><button className="icon-button mobile-menu" onClick={()=>setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="top-actions"><label className="search-box"><Search size={16}/><input ref={searchInputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search resources..."/><kbd>Ctrl K</kbd></label><button className="icon-button notification-button" title="Enable notifications" onClick={enableNotifications}><Bell size={18}/><span/></button><div className="user-mini">A</div></div></header>
       <div className="page-wrap">
         {notice&&<div className="toast"><Check size={15}/>{notice}<button onClick={()=>setNotice('')}><X size={14}/></button></div>}
         <div className="page-heading"><div><div className="eyebrow"><span className="live-dot"/>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div><h1>{page==='Overview'?`${greet}.`:pageTitle}</h1><p>{page==='Overview'?'Make today count. Consistency compounds into capability.':page==='Planner'?'Every goal becomes easier when the next action is clear.':page==='Learning library'?'One place for everything you want to learn, build, and master.':page==='DSA tracker'?'Log your own problems, attempts and revision dates.':page==='Goals & skills'?'Track outcomes, not just hours spent watching content.':'Bring your learning activity into one connected workspace.'}</p></div><div className="heading-actions">{page==='Planner'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Add task</button>:page==='Learning library'?<button className="primary-button" onClick={()=>setShowResource(true)}><Plus size={17}/> Add resource</button>:page==='DSA tracker'?<button className="primary-button" onClick={()=>setShowProblem(true)}><Plus size={17}/> Add problem</button>:page==='Goals & skills'?<button className="primary-button" onClick={()=>setShowGoal(true)}><Plus size={17}/> Add goal</button>:page==='Overview'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Plan a task</button>:page==='Integrations'?<button className="secondary-button" onClick={exportData}><ExternalLink size={15}/> Export backup</button>:null}</div></div>
@@ -189,11 +218,11 @@ export default function App() {
             <div className="stat-card"><div className="stat-top"><IconBadge className="purple"><Target size={17}/></IconBadge><span className="stat-trend"><ArrowUpRight size={13}/> All time</span></div><div className="stat-value">{completed}<span>/{tasks.length}</span></div><div className="stat-label">Tasks completed</div><Progress value={completionPct}/><div className="stat-foot">{completionPct}% of tracked tasks done</div></div>
             <div className="stat-card"><div className="stat-top"><IconBadge className="blue"><BookOpen size={17}/></IconBadge><span className="stat-chip">{inProgress} active</span></div><div className="stat-value">{resources.length.toString().padStart(2,'0')}</div><div className="stat-label">Learning resources</div><Progress value={resources.length?doneResources/resources.length*100:0} tone="blue"/><div className="stat-foot">{doneResources} completed  |  {resources.length-doneResources} to go</div></div>
             <div className="stat-card"><div className="stat-top"><IconBadge className="green"><TrendingUp size={17}/></IconBadge><span className="stat-chip">{skills.length?`Across ${skills.length} skills`:'No skills yet'}</span></div><div className="stat-value">{skills.length?Math.round(skills.reduce((n,s)=>n+s.value,0)/skills.length):'-'}{skills.length>0&&<span>/100</span>}</div><div className="stat-label">Skill development index</div><Progress value={skills.reduce((n,s)=>n+s.value,0)/Math.max(1,skills.length)} tone="green"/><div className="stat-foot">Self-assessed baseline - update with evidence</div></div>
-            <div className="stat-card"><div className="stat-top"><IconBadge className="orange"><Clock3 size={17}/></IconBadge><span className={`priority-pill ${overdue.length?'danger':''}`}>{overdue.length?'Needs attention':'On track'}</span></div><div className="stat-value">{pending.length.toString().padStart(2,'0')}</div><div className="stat-label">Tasks still on your plate</div><div className="stat-detail"><span className="tiny-dot orange-dot"/>{overdue.length} overdue <span className="dot-divider"> | </span> {todayTasks.length} scheduled today</div><div className="stat-foot">Keep the next action visible</div></div>
+            <div className="stat-card"><div className="stat-top"><IconBadge className="orange"><Clock3 size={17}/></IconBadge><span className={`priority-pill ${overdue.length?'danger':''}`}>{overdue.length?'Needs attention':'On track'}</span></div><div className="stat-value">{openTasks.length.toString().padStart(2,'0')}</div><div className="stat-label">Open tasks</div><div className="stat-detail"><span className="tiny-dot orange-dot"/>{overdue.length} overdue <span className="dot-divider"> | </span> {todayTasks.length} scheduled today</div><div className="stat-foot">Keep the next action visible</div></div>
           </section>
 
           <section className="content-grid overview-grid">
-            <div className="panel focus-panel"><div className="panel-heading"><div><span className="section-kicker">DAILY EXECUTION</span><h2>Today's focus</h2></div><button className="text-link" onClick={()=>setPage('Planner')}>View planner <ArrowRight size={14}/></button></div><div className="focus-summary"><div className="focus-ring" style={{'--pct':`${todayCompletionPct}%`} as CSSProperties}><div><strong>{todayCompletionPct}%</strong><small>today complete</small></div></div><div className="focus-copy"><strong>{tasks.length?(pending.length?`${pending.length} things left to move forward`:'You cleared your list'):'Your workspace is ready'}</strong><p>{tasks.length?(pending.length?'Choose one task and give it your full attention.':'Protect your momentum: plan tomorrow or review what worked.'):'Add your first task, goal or learning resource to begin.'}</p><span><Zap size={13}/> One focused block at a time</span></div></div><div className="task-list">{todayTasks.slice(0,4).map(task=><TaskRow key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask}/>)}{todayTasks.length===0&&<EmptyState icon={<CheckCheck size={21}/>} title="Nothing scheduled yet" text="Add one clear next action to get started."/>}</div><button className="wide-ghost" onClick={()=>setShowTask(true)}><Plus size={15}/> Add a task to today</button></div>
+            <div className="panel focus-panel"><div className="panel-heading"><div><span className="section-kicker">DAILY EXECUTION</span><h2>Today's focus</h2></div><button className="text-link" onClick={()=>setPage('Planner')}>View planner <ArrowRight size={14}/></button></div><div className="focus-summary"><div className="focus-ring" style={{'--pct':`${todayCompletionPct}%`} as CSSProperties}><div><strong>{todayCompletionPct}%</strong><small>today complete</small></div></div><div className="focus-copy"><strong>{todayTasks.length?(pending.length?pending.length + " tasks left today":"You cleared today's list"):tasks.length?"No tasks planned today":"Your workspace is ready"}</strong><p>{todayTasks.length?(pending.length?"Choose one task and give it your full attention.":"You completed every task scheduled for today. Review tomorrow's plan or log a learning session."):tasks.length?"Your tasks are scheduled for other days. Add one today to create a focused plan.":"Add your first task, goal or learning resource to begin."}</p><span><Zap size={13}/> One focused block at a time</span></div></div><div className="task-list">{todayTasks.slice(0,4).map(task=><TaskRow key={task.id} task={task} onToggle={toggleTask} onDelete={deleteTask}/>)}{todayTasks.length===0&&<EmptyState icon={<CheckCheck size={21}/>} title="Nothing scheduled yet" text="Add one clear next action to get started."/>}</div><button className="wide-ghost" onClick={()=>setShowTask(true)}><Plus size={15}/> Add a task to today</button></div>
             <div className="panel week-panel"><div className="panel-heading"><div><span className="section-kicker">YOUR RHYTHM</span><h2>This week</h2></div><span className="muted small">{weekDays.reduce((n,d)=>n+d.done,0)} completed</span></div><div className="week-chart">{weekDays.map(d=><button key={d.iso} className={`day-column ${d.active?'today':''}`} onClick={()=>{setPage('Planner');setQuery('')}} title={`${d.iso}: ${d.done} tasks completed`}><div className="bar-track"><div className="bar-fill" style={{height:`${d.done?Math.min(100,d.done*26):0}%`}}/></div><span className="day-date">{d.date}</span><span className="day-label">{d.label}</span></button>)}</div><div className="week-insight"><div className="insight-icon"><Sparkles size={16}/></div><div><strong>Progress beats perfect plans.</strong><p>Use this view to spot consistency, not to judge one busy day.</p></div></div><div className="weekly-target"><div><span>Weekly task completion</span><strong>{tasks.filter(t=>t.done&&weekDays.some(d=>d.iso===t.due)).length} <small>tasks</small></strong></div><Progress value={Math.min(100,weekDays.reduce((n,d)=>n+d.done,0)*14)} tone="blue"/></div></div>
           </section>
 
