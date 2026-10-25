@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useAppContext } from '../../context/AppContext'
 import type { Page } from '../../types/models'
-import { Activity, ArrowUpRight, BookOpen, CalendarClock, ChevronDown, Code2, Flame, GraduationCap, LayoutDashboard, Settings2, Sparkles, Target, X } from 'lucide-react'
+import { Activity, ArrowUpRight, BookOpen, CalendarClock, ChevronDown, Code2, Flame, GraduationCap, LayoutDashboard, Settings2, Sparkles, Target, Timer, X } from 'lucide-react'
 
 const navItems:{label:Page;icon:ReactNode;section:string}[]=[
     {label:'Overview',icon:<LayoutDashboard size={17}/>,section:'WORKSPACE'},
