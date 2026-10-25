@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createClient, type Session } from '@supabase/supabase-js'
 import App from '../App'
+import type { ActivityEntry, FocusSession, Goal, Problem, Resource, Skill, Task } from '../types/models'
 
-type WorkspaceData = { tasks: any[]; resources: any[]; goals: any[]; skills: any[]; problems: any[]; focusSessions: any[]; activity: any[] }
+type WorkspaceData = { tasks: Task[]; resources: Resource[]; goals: Goal[]; skills: Skill[]; problems: Problem[]; focusSessions: FocusSession[]; activity: ActivityEntry[] }
 // ASCEND EXECUTION ENGINE CLOUD V1
 type WorkspaceRow = { user_id: string; data: WorkspaceData; timezone: string; updated_at: string }
 const STORAGE_KEYS = {
