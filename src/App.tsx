@@ -22,8 +22,9 @@ export default function App() {
  return <AppProvider value={model}><WorkspaceApp /></AppProvider>
 }
 function WorkspaceApp() {
- const { page, notice, setNotice } = useAppContext()
+ const { page, notice, setNotice, mobileNav, setMobileNav } = useAppContext()
    return <div className="app-shell">
+    {mobileNav && <button className="sidebar-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMobileNav(false)} />}
     <Sidebar />
 
     <main className="main-area">
