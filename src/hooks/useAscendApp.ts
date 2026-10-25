@@ -2,6 +2,12 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent 
 import type { ActivityEntry, FocusTimerState, FocusSession, Goal, Page, Problem, Resource, Skill, Task } from '../types/models'
 import { currentTimeHHMM, formatDuration, localDateISO, todayISO } from '../lib/dates'
 
+const initialTasks: Task[] = []
+const initialResources: Resource[] = []
+const initialGoals: Goal[] = []
+const initialSkills: Skill[] = []
+const initialProblems: Problem[] = []
+
 function getSaved<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key)
