@@ -1,0 +1,11 @@
+import { useAppContext } from '../../context/AppContext'
+import { Modal } from '../../components/ui/Shared'
+import { Plus } from 'lucide-react'
+import type { Problem } from '../../types/models'
+
+export default function ProblemFormModal() {
+ const { problems, setShowProblem, problemDraft, setProblemDraft, addProblem } = useAppContext()
+ return <>{showProblem && (
+  <Modal title="Add a DSA problem" subtitle="Log a problem you choose to work on." onClose={()=>setShowProblem(false)}><form className="modal-form" onSubmit={addProblem}><label>Problem name<input required autoFocus value={problemDraft.title} onChange={e=>setProblemDraft({...problemDraft,title:e.target.value})} placeholder="Problem title"/></label><label>Problem URL (optional)<input type="url" value={problemDraft.url} onChange={e=>setProblemDraft({...problemDraft,url:e.target.value})} placeholder="https://leetcode.com/problems/..."/></label><div className="form-two"><label>Platform<select value={problemDraft.platform} onChange={e=>setProblemDraft({...problemDraft,platform:e.target.value})}>{['LeetCode','Codeforces','Striver','GeeksforGeeks','Other'].map(x=><option key={x}>{x}</option>)}</select></label><label>Topic<input value={problemDraft.topic} onChange={e=>setProblemDraft({...problemDraft,topic:e.target.value})} placeholder="Arrays, DP..."/></label></div><div className="form-two"><label>Difficulty<select value={problemDraft.difficulty} onChange={e=>setProblemDraft({...problemDraft,difficulty:e.target.value as Problem['difficulty']})}>{['Easy','Medium','Hard'].map(x=><option key={x}>{x}</option>)}</select></label><label>Status<select value={problemDraft.status} onChange={e=>setProblemDraft({...problemDraft,status:e.target.value as Problem['status']})}>{['Todo','Attempted','Solved'].map(x=><option key={x}>{x}</option>)}</select></label></div><label>Next revision date (optional)<input type="date" value={problemDraft.nextReview} onChange={e=>setProblemDraft({...problemDraft,nextReview:e.target.value})}/></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowProblem(false)}>Cancel</button><button className="primary-button" type="submit"><Plus size={15}/> Save problem</button></div></form></Modal>
+ )}</>
+}

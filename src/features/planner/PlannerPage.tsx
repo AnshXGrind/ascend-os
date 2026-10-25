@@ -1,0 +1,11 @@
+import { useAppContext } from '../../context/AppContext'
+import { TaskRow, EmptyState } from '../../components/ui/Shared'
+import { Bell, CalendarClock, Plus } from 'lucide-react'
+import { todayISO, prettyDate } from '../../lib/dates'
+
+export default function PlannerPage() {
+ const { tasks, setShowTask, todayTasks, pending, overdue, completionPct, toggleTask, deleteTask, enableNotifications } = useAppContext()
+ return (
+  <section className="panel full-panel"><div className="panel-heading"><div><span className="section-kicker">PLAN  |  EXECUTE  |  REVIEW</span><h2>Your task timeline</h2></div><div className="inline-actions"><button className="secondary-button" onClick={enableNotifications}><Bell size={15}/> Notifications</button><button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={16}/> New task</button></div></div><div className="planner-overview"><div><span>Open tasks</span><strong>{tasks.filter(t=>!t.done).length}</strong></div><div><span>Due today</span><strong>{pending.length}</strong></div><div><span>Overdue</span><strong className={overdue.length?'red-text':''}>{overdue.length}</strong></div><div><span>Completion</span><strong>{completionPct}%</strong></div></div><div className="planner-section-title"><h3>Overdue</h3><span>{overdue.length} tasks</span></div>{overdue.length?overdue.sort((a,b)=>a.due.localeCompare(b.due)).map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} detailed/>):<p className="empty-line">No overdue tasks. Keep it that way with realistic scheduling.</p>}<div className="planner-section-title"><h3>Today  |  {prettyDate(todayISO())}</h3><span>{todayTasks.length} tasks</span></div>{todayTasks.length?todayTasks.map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} detailed/>):<EmptyState icon={<CalendarClock size={22}/>} title="Your day is open" text="Add a task with a due date and time to plan your next step."/>}<div className="planner-section-title"><h3>Upcoming</h3><span>Next deadlines</span></div>{tasks.filter(t=>!t.done&&t.due>todayISO()).sort((a,b)=>`${a.due}${a.time}`.localeCompare(`${b.due}${b.time}`)).map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} detailed/>)}{tasks.every(t=>t.done||t.due<=todayISO())&&<p className="empty-line">No future tasks scheduled yet.</p>}</section>
+ )
+}
