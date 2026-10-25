@@ -4,7 +4,7 @@ import {
   CalendarClock, Check, CheckCheck, ChevronDown, CircleHelp, Clock3, Code2, Command,
   Compass, ExternalLink, Flame, FolderKanban, GraduationCap, LayoutDashboard, ListTodo,
   Menu, MessageCircle, MoreHorizontal, Plus, Search, Settings2, Sparkles, Target,
-  TrendingUp, Trophy, X, Zap,
+  TrendingUp, Trophy, X, Zap, Timer, Play, Pause, Square, History,
 } from 'lucide-react'
 
 type Task = { id: string; title: string; area: string; due: string; time: string; priority: 'High'|'Medium'|'Low'; done: boolean; completedAt?: string }
@@ -12,7 +12,11 @@ type Resource = { id: string; title: string; provider: string; category: string;
 type Goal = { id: string; title: string; detail: string; progress: number; target: string; color: string }
 type Skill = { name: string; value: number; evidence: string }
 type Problem = { id:string; title:string; platform:string; topic:string; difficulty:'Easy'|'Medium'|'Hard'; url:string; status:'Todo'|'Attempted'|'Solved'; nextReview:string }
-type Page = 'Overview'|'Planner'|'Learning library'|'DSA tracker'|'Goals & skills'|'Integrations'
+// ASCEND EXECUTION ENGINE V1
+type FocusSession = { id:string; title:string; taskId?:string; startedAt:string; endedAt:string; durationSeconds:number; note:string }
+type ActivityEntry = { id:string; kind:'focus'|'task'|'resource'|'problem'; title:string; detail:string; at:string }
+type FocusTimerState = { title:string; taskId:string; note:string; startedAt:string|null; seconds:number; running:boolean }
+type Page = 'Overview'|'Planner'|'Focus & activity'|'Learning library'|'DSA tracker'|'Goals & skills'|'Integrations'
 
 function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 function localDateISO(d:Date) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
@@ -41,6 +45,29 @@ function IconBadge({ children, className='' }: { children:ReactNode; className?:
 function Progress({ value, tone='violet' }: { value:number; tone?:string }) { return <div className={`progress ${tone}`}><span style={{width:`${Math.max(0,Math.min(100,value))}%`}} /></div> }
 function prettyDate(iso:string) { if (!iso) return 'No date'; const d=new Date(`${iso}T12:00:00`); return d.toLocaleDateString('en-IN',{day:'numeric',month:'short'}) }
 
+function readFocusTimer():FocusTimerState {
+  const fallback:FocusTimerState={title:'Deep work',taskId:'',note:'',startedAt:null,seconds:0,running:false}
+  try {
+    const parsed=JSON.parse(localStorage.getItem('ascend.focusTimer')||'{}')
+    return {
+      title:typeof parsed.title==='string'?parsed.title:'Deep work',
+      taskId:typeof parsed.taskId==='string'?parsed.taskId:'',
+      note:typeof parsed.note==='string'?parsed.note:'',
+      startedAt:typeof parsed.startedAt==='string'?parsed.startedAt:null,
+      seconds:typeof parsed.seconds==='number'&&Number.isFinite(parsed.seconds)&&parsed.seconds>=0?Math.floor(parsed.seconds):0,
+      // Restore an interrupted timer as paused; never silently count time while the app was closed.
+      running:false,
+    }
+  } catch { return fallback }
+}
+function formatDuration(totalSeconds:number) {
+  const total=Math.max(0,Math.floor(totalSeconds))
+  const hours=Math.floor(total/3600)
+  const minutes=Math.floor((total%3600)/60)
+  const seconds=total%60
+  return hours>0?`${hours}h ${String(minutes).padStart(2,'0')}m`:minutes>0?`${minutes}m ${String(seconds).padStart(2,'0')}s`:`${seconds}s`
+}
+
 export default function App() {
   const [page,setPage]=useState<Page>('Overview')
   const [tasks,setTasks]=useState<Task[]>(()=>getSaved('ascend.tasks',initialTasks))
@@ -48,6 +75,9 @@ export default function App() {
   const [goals,setGoals]=useState<Goal[]>(()=>getSaved('ascend.goals',initialGoals))
   const [skills,setSkills]=useState<Skill[]>(()=>getSaved('ascend.skills',initialSkills))
   const [problems,setProblems]=useState<Problem[]>(()=>getSaved('ascend.problems',initialProblems))
+  const [focusSessions,setFocusSessions]=useState<FocusSession[]>(()=>getSaved<FocusSession[]>('ascend.focusSessions',[]))
+  const [activity,setActivity]=useState<ActivityEntry[]>(()=>getSaved<ActivityEntry[]>('ascend.activity',[]))
+  const [focusTimer,setFocusTimer]=useState<FocusTimerState>(()=>readFocusTimer())
   const [query,setQuery]=useState('')
   const [resourceCategory,setResourceCategory]=useState('All categories')
   const backupInputRef=useRef<HTMLInputElement>(null)
@@ -78,6 +108,10 @@ export default function App() {
   useEffect(()=>{localStorage.setItem('ascend.goals',JSON.stringify(goals))},[goals])
   useEffect(()=>{localStorage.setItem('ascend.skills',JSON.stringify(skills))},[skills])
   useEffect(()=>{localStorage.setItem('ascend.problems',JSON.stringify(problems))},[problems])
+  useEffect(()=>{localStorage.setItem('ascend.focusSessions',JSON.stringify(focusSessions))},[focusSessions])
+  useEffect(()=>{localStorage.setItem('ascend.activity',JSON.stringify(activity))},[activity])
+  useEffect(()=>{localStorage.setItem('ascend.focusTimer',JSON.stringify(focusTimer))},[focusTimer])
+  useEffect(()=>{if(!focusTimer.running)return;const timer=window.setInterval(()=>setFocusTimer(old=>old.running?{...old,seconds:old.seconds+1}:old),1000);return()=>window.clearInterval(timer)},[focusTimer.running])
   useEffect(()=>{if(ytKey)localStorage.setItem('ascend.youtubeKey',ytKey);else localStorage.removeItem('ascend.youtubeKey')},[ytKey])
   useEffect(()=>{if(cfHandle)localStorage.setItem('ascend.cfHandle',cfHandle)},[cfHandle])
   useEffect(()=>{
@@ -115,14 +149,25 @@ export default function App() {
   const weekDays=useMemo(()=>{const current=new Date();const start=new Date(current);const monday=(current.getDay()+6)%7;start.setDate(current.getDate()-monday);return Array.from({length:7},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;return{label:d.toLocaleDateString('en-IN',{weekday:'short'}),date:d.getDate(),iso,done:tasks.filter(t=>t.done&&t.completedAt&&localDateISO(new Date(t.completedAt))===iso).length,active:iso===todayISO()}})},[tasks])
   const greet=new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening'
 
-  function toggleTask(id:string){setTasks(old=>old.map(t=>t.id===id?{...t,done:!t.done,completedAt:!t.done?new Date().toISOString():undefined}:t))}
+  function logActivity(kind:ActivityEntry['kind'],title:string,detail='') {
+    setActivity(old=>[{id:crypto.randomUUID(),kind,title,detail,at:new Date().toISOString()},...old].slice(0,300))
+  }
+  function toggleTask(id:string){
+    const task=tasks.find(t=>t.id===id)
+    if(task&&!task.done)logActivity('task',`Completed task: ${task.title}`,task.area)
+    setTasks(old=>old.map(t=>t.id===id?{...t,done:!t.done,completedAt:!t.done?new Date().toISOString():undefined}:t))
+  }
   function deleteTask(id:string){setTasks(old=>old.filter(t=>t.id!==id));setNotice('Task removed')}
   function addTask(e:FormEvent){e.preventDefault();if(!taskDraft.title.trim())return;setTasks(old=>[...old,{...taskDraft,id:crypto.randomUUID(),done:false}]);setTaskDraft({title:'',area:'DSA',due:todayISO(),time:'19:00',priority:'Medium'});setShowTask(false);setNotice('Task added to your planner')}
   function addResource(e:FormEvent){e.preventDefault();if(!resourceDraft.title.trim()||!resourceDraft.url.trim())return;setResources(old=>[{...resourceDraft,id:crypto.randomUUID(),progress:0,status:'Queued'},...old]);setResourceDraft({title:'',provider:'YouTube',category:'DSA',url:'',kind:'Playlist'});setShowResource(false);setNotice('Resource saved to your library')}
   function addGoal(e:FormEvent){e.preventDefault();if(!goalDraft.title.trim())return;setGoals(old=>[...old,{...goalDraft,id:crypto.randomUUID()}]);setGoalDraft({title:'',detail:'',progress:0,target:'',color:'violet'});setShowGoal(false);setNotice('Goal added')}
   function addSkill(e:FormEvent){e.preventDefault();if(!skillDraft.name.trim()||skills.some(s=>s.name.toLowerCase()===skillDraft.name.trim().toLowerCase()))return;setSkills(old=>[...old,{...skillDraft}]);setSkillDraft({name:'',value:0,evidence:''});setShowSkill(false);setNotice('Skill added')}
   function addProblem(e:FormEvent){e.preventDefault();if(!problemDraft.title.trim())return;setProblems(old=>[{...problemDraft,id:crypto.randomUUID()},...old]);setProblemDraft({title:'',platform:'LeetCode',topic:'Arrays',difficulty:'Medium',url:'',status:'Todo',nextReview:''});setShowProblem(false);setNotice('Problem added')}
-  function updateProblem(id:string,status:Problem['status']){setProblems(old=>old.map(p=>p.id===id?{...p,status}:p))}
+  function updateProblem(id:string,status:Problem['status']){
+    const problem=problems.find(p=>p.id===id)
+    setProblems(old=>old.map(p=>p.id===id?{...p,status}:p))
+    if(problem&&status==='Solved'&&problem.status!=='Solved')logActivity('problem',`Solved problem: ${problem.title}`,`${problem.platform} - ${problem.topic}`)
+  }
   async function importYouTubePlaylist(e:FormEvent){
     e.preventDefault();setYtError('');const key=ytKey.trim();const input=ytPlaylist.trim();if(!key||!input){setYtError('Enter an API key and a playlist URL.');return}
     let playlistId=input;try{const u=new URL(input);playlistId=u.searchParams.get('list')||u.pathname.split('/').filter(Boolean).pop()||input}catch{}
@@ -146,10 +191,28 @@ export default function App() {
 
   async function enableNotifications(){if(!('Notification'in window)){setNotice('This browser does not support notifications');return}const p=await Notification.requestPermission();setNotice(p==='granted'?'Browser notifications enabled while Ascend is open':`Notification permission: ${p}`)}
   async function connectCodeforces(e:FormEvent){e.preventDefault();const handle=cfHandle.trim();if(!handle)return;setCfLoading(true);setCfError('');setCfStats(null);try{const response=await fetch(`https://codeforces.com/api/user.info?handles=${encodeURIComponent(handle)}`);const json=await response.json();if(json.status!=='OK'||!json.result?.[0])throw new Error(json.comment||'Could not find this Codeforces handle');const u=json.result[0];let solved=0;try{const sub=await fetch(`https://codeforces.com/api/user.status?handle=${encodeURIComponent(handle)}&from=1&count=1000`).then(r=>r.json());if(sub.status==='OK')solved=new Set(sub.result.filter((s:any)=>s.verdict==='OK').map((s:any)=>`${s.problem?.contestId}-${s.problem?.index}`)).size}catch{}setCfStats({rating:u.rating||0,maxRating:u.maxRating||0,rank:u.rank||'unrated',solved})}catch(err){setCfError(err instanceof Error?err.message:'Could not connect. Check the handle and try again.')}finally{setCfLoading(false)}}
+  function finishFocusSession(){
+    if(!focusTimer.startedAt||focusTimer.seconds<1){setNotice('Start a focus session before saving it');return}
+    const linkedTask=tasks.find(t=>t.id===focusTimer.taskId)
+    const endedAt=new Date().toISOString()
+    const session:FocusSession={
+      id:crypto.randomUUID(),title:linkedTask?.title||focusTimer.title.trim()||'Focused work',
+      taskId:focusTimer.taskId||undefined,startedAt:focusTimer.startedAt,endedAt,
+      durationSeconds:focusTimer.seconds,note:focusTimer.note.trim(),
+    }
+    setFocusSessions(old=>[session,...old].slice(0,300))
+    setActivity(old=>[{id:crypto.randomUUID(),kind:'focus' as const,title:`Focus session: ${session.title}`,detail:`${formatDuration(session.durationSeconds)}${session.note?` - ${session.note}`:''}`,at:endedAt},...old].slice(0,300))
+    setFocusTimer(old=>({...old,startedAt:null,seconds:0,running:false,note:''}))
+    setNotice(`Logged ${formatDuration(session.durationSeconds)} of focused work`)
+  }
   function updateGoal(id:string,value:number){setGoals(old=>old.map(g=>g.id===id?{...g,progress:Math.max(0,Math.min(100,value))}:g))}
   function updateSkill(name:string,value:number){setSkills(old=>old.map(s=>s.name===name?{...s,value:Math.max(0,Math.min(100,value))}:s))}
-  function updateResourceStatus(id:string,status:Resource['status']){setResources(old=>old.map(r=>r.id===id?{...r,status,progress:status==='Completed'?100:status==='Queued'?0:r.progress}:r))}
-  function exportData(){const payload={schemaVersion:1,exportedAt:new Date().toISOString(),tasks,resources,goals,skills,problems};const a=document.createElement('a');const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.href=url;a.download='ascend-os-backup.json';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);setNotice('Backup exported')}
+  function updateResourceStatus(id:string,status:Resource['status']){
+    const resource=resources.find(r=>r.id===id)
+    setResources(old=>old.map(r=>r.id===id?{...r,status,progress:status==='Completed'?100:status==='Queued'?0:r.progress}:r))
+    if(resource&&status==='Completed'&&resource.status!=='Completed')logActivity('resource',`Completed resource: ${resource.title}`,resource.provider)
+  }
+  function exportData(){const payload={schemaVersion:2,exportedAt:new Date().toISOString(),tasks,resources,goals,skills,problems,focusSessions,activity};const a=document.createElement('a');const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.href=url;a.download='ascend-os-backup.json';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);setNotice('Backup exported')}
   async function importBackup(e:ChangeEvent<HTMLInputElement>){
     const input=e.currentTarget
     const file=input.files?.[0]
@@ -163,17 +226,21 @@ export default function App() {
         ? payload.data as Record<string,unknown>
         : payload
       const keys=['tasks','resources','goals','skills','problems']
+      const optionalKeys=['focusSessions','activity']
+      if(optionalKeys.some(k=>source[k]!==undefined&&(!Array.isArray(source[k])||(source[k] as unknown[]).some(item=>item===null||typeof item!=='object'||Array.isArray(item)))))throw new Error('Optional backup collections are invalid.')
       if(!keys.every(k=>Array.isArray(source[k])&&(source[k] as unknown[]).every(item=>item!==null&&typeof item==='object'&&!Array.isArray(item))))throw new Error('This file is not a valid Ascend OS backup.')
       const incoming=source as unknown as {tasks:Task[];resources:Resource[];goals:Goal[];skills:Skill[];problems:Problem[]}
+      const incomingFocusSessions=(Array.isArray(source.focusSessions)?source.focusSessions:[]) as FocusSession[]
+      const incomingActivity=(Array.isArray(source.activity)?source.activity:[]) as ActivityEntry[]
       if(!incoming.tasks.every(x=>typeof x.id==='string'&&typeof x.title==='string')
         ||!incoming.resources.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&typeof x.url==='string')
         ||!incoming.goals.every(x=>typeof x.id==='string'&&typeof x.title==='string')
         ||!incoming.skills.every(x=>typeof x.name==='string')
-        ||!incoming.problems.every(x=>typeof x.id==='string'&&typeof x.title==='string'))throw new Error('Backup records failed validation. No data was changed.')
+        ||!incoming.problems.every(x=>typeof x.id==='string'&&typeof x.title==='string')||!incomingFocusSessions.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&typeof x.durationSeconds==='number')||!incomingActivity.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&typeof x.at==='string'))throw new Error('Backup records failed validation. No data was changed.')
       const mode=window.prompt('Type MERGE to add backup data without duplicate IDs, or REPLACE to replace all current records.','MERGE')?.trim().toUpperCase()
       if(mode==='REPLACE'){
-        if(!window.confirm('Replace all current tasks, resources, goals, skills and DSA problems with this backup? Export a backup first if unsure.'))return
-        setTasks(incoming.tasks);setResources(incoming.resources);setGoals(incoming.goals);setSkills(incoming.skills);setProblems(incoming.problems)
+        if(!window.confirm('Replace all tasks, resources, goals, skills, DSA problems, focus sessions and activity with this backup? Export a backup first if unsure.'))return
+        setTasks(incoming.tasks);setResources(incoming.resources);setGoals(incoming.goals);setSkills(incoming.skills);setProblems(incoming.problems);setFocusSessions(incomingFocusSessions);setActivity(incomingActivity)
       }else if(mode==='MERGE'){
         const merge=<T,>(old:T[],fresh:T[],key:(item:T)=>string)=>{const map=new Map(old.map(item=>[key(item),item]));fresh.forEach(item=>{const k=key(item);if(!map.has(k))map.set(k,item)});return Array.from(map.values())}
         setTasks(old=>merge(old,incoming.tasks,x=>x.id))
@@ -181,6 +248,8 @@ export default function App() {
         setGoals(old=>merge(old,incoming.goals,x=>x.id))
         setSkills(old=>merge(old,incoming.skills,x=>x.name.trim().toLowerCase()))
         setProblems(old=>merge(old,incoming.problems,x=>x.id))
+        setFocusSessions(old=>merge(old,incomingFocusSessions,x=>x.id))
+        setActivity(old=>merge(old,incomingActivity,x=>x.id))
       }else{return}
       setNotice(mode==='REPLACE'?'Backup restored':'Backup merged with current data')
     }catch(err){setNotice(`Backup import failed: ${err instanceof Error?err.message:'Invalid file'}`)}finally{input.value=''}
@@ -189,12 +258,13 @@ export default function App() {
   const navItems:{label:Page;icon:ReactNode;section:string}[]=[
     {label:'Overview',icon:<LayoutDashboard size={17}/>,section:'WORKSPACE'},
     {label:'Planner',icon:<CalendarClock size={17}/>,section:'WORKSPACE'},
+    {label:'Focus & activity',icon:<Timer size={17}/>,section:'WORKSPACE'},
     {label:'Learning library',icon:<BookOpen size={17}/>,section:'WORKSPACE'},
     {label:'DSA tracker',icon:<Code2 size={17}/>,section:'WORKSPACE'},
     {label:'Goals & skills',icon:<Target size={17}/>,section:'GROWTH'},
     {label:'Integrations',icon:<Activity size={17}/>,section:'SYSTEM'},
   ]
-  const pageTitle=page==='Overview'?'Your command center':page==='Planner'?'Plan with intention':page==='Learning library'?'Your learning universe':page==='DSA tracker'?'Track every problem and revision':page==='Goals & skills'?'Build measurable skills':'Connect your ecosystem'
+  const pageTitle=page==='Overview'?'Your command center':page==='Planner'?'Plan with intention':page==='Focus & activity'?'Protect your focus time':page==='Learning library'?'Your learning universe':page==='DSA tracker'?'Track every problem and revision':page==='Goals & skills'?'Build measurable skills':'Connect your ecosystem'
 
   return <div className="app-shell">
     <aside className={`sidebar ${mobileNav?'show-mobile':''}`}>
@@ -211,7 +281,7 @@ export default function App() {
       <header className="topbar"><div className="top-left"><button className="icon-button mobile-menu" onClick={()=>setMobileNav(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="top-actions"><label className="search-box"><Search size={16}/><input ref={searchInputRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search resources..."/><kbd>Ctrl K</kbd></label><button className="icon-button notification-button" title="Enable notifications" onClick={enableNotifications}><Bell size={18}/><span/></button><div className="user-mini">A</div></div></header>
       <div className="page-wrap">
         {notice&&<div className="toast"><Check size={15}/>{notice}<button onClick={()=>setNotice('')}><X size={14}/></button></div>}
-        <div className="page-heading"><div><div className="eyebrow"><span className="live-dot"/>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div><h1>{page==='Overview'?`${greet}.`:pageTitle}</h1><p>{page==='Overview'?'Make today count. Consistency compounds into capability.':page==='Planner'?'Every goal becomes easier when the next action is clear.':page==='Learning library'?'One place for everything you want to learn, build, and master.':page==='DSA tracker'?'Log your own problems, attempts and revision dates.':page==='Goals & skills'?'Track outcomes, not just hours spent watching content.':'Bring your learning activity into one connected workspace.'}</p></div><div className="heading-actions">{page==='Planner'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Add task</button>:page==='Learning library'?<button className="primary-button" onClick={()=>setShowResource(true)}><Plus size={17}/> Add resource</button>:page==='DSA tracker'?<button className="primary-button" onClick={()=>setShowProblem(true)}><Plus size={17}/> Add problem</button>:page==='Goals & skills'?<button className="primary-button" onClick={()=>setShowGoal(true)}><Plus size={17}/> Add goal</button>:page==='Overview'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Plan a task</button>:page==='Integrations'?<button className="secondary-button" onClick={exportData}><ExternalLink size={15}/> Export backup</button>:null}</div></div>
+        <div className="page-heading"><div><div className="eyebrow"><span className="live-dot"/>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div><h1>{page==='Overview'?`${greet}.`:pageTitle}</h1><p>{page==='Overview'?'Make today count. Consistency compounds into capability.':page==='Planner'?'Every goal becomes easier when the next action is clear.':page==='Focus & activity'?'Build deliberate focus sessions and keep a truthful history of completed work.':page==='Learning library'?'One place for everything you want to learn, build, and master.':page==='DSA tracker'?'Log your own problems, attempts and revision dates.':page==='Goals & skills'?'Track outcomes, not just hours spent watching content.':'Bring your learning activity into one connected workspace.'}</p></div><div className="heading-actions">{page==='Planner'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Add task</button>:page==='Learning library'?<button className="primary-button" onClick={()=>setShowResource(true)}><Plus size={17}/> Add resource</button>:page==='DSA tracker'?<button className="primary-button" onClick={()=>setShowProblem(true)}><Plus size={17}/> Add problem</button>:page==='Goals & skills'?<button className="primary-button" onClick={()=>setShowGoal(true)}><Plus size={17}/> Add goal</button>:page==='Overview'?<button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={17}/> Plan a task</button>:page==='Integrations'?<button className="secondary-button" onClick={exportData}><ExternalLink size={15}/> Export backup</button>:null}</div></div>
 
         {page==='Overview'&&<>
           <section className="stat-grid">
@@ -233,6 +303,24 @@ export default function App() {
 
         {page==='Planner'&&<section className="panel full-panel"><div className="panel-heading"><div><span className="section-kicker">PLAN  |  EXECUTE  |  REVIEW</span><h2>Your task timeline</h2></div><div className="inline-actions"><button className="secondary-button" onClick={enableNotifications}><Bell size={15}/> Notifications</button><button className="primary-button" onClick={()=>setShowTask(true)}><Plus size={16}/> New task</button></div></div><div className="planner-overview"><div><span>Open tasks</span><strong>{tasks.filter(t=>!t.done).length}</strong></div><div><span>Due today</span><strong>{pending.length}</strong></div><div><span>Overdue</span><strong className={overdue.length?'red-text':''}>{overdue.length}</strong></div><div><span>Completion</span><strong>{completionPct}%</strong></div></div><div className="planner-section-title"><h3>Overdue</h3><span>{overdue.length} tasks</span></div>{overdue.length?overdue.sort((a,b)=>a.due.localeCompare(b.due)).map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} detailed/>):<p className="empty-line">No overdue tasks. Keep it that way with realistic scheduling.</p>}<div className="planner-section-title"><h3>Today  |  {prettyDate(todayISO())}</h3><span>{todayTasks.length} tasks</span></div>{todayTasks.length?todayTasks.map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} detailed/>):<EmptyState icon={<CalendarClock size={22}/>} title="Your day is open" text="Add a task with a due date and time to plan your next step."/>}<div className="planner-section-title"><h3>Upcoming</h3><span>Next deadlines</span></div>{tasks.filter(t=>!t.done&&t.due>todayISO()).sort((a,b)=>`${a.due}${a.time}`.localeCompare(`${b.due}${b.time}`)).map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} detailed/>)}{tasks.every(t=>t.done||t.due<=todayISO())&&<p className="empty-line">No future tasks scheduled yet.</p>}</section>}
 
+        {page==='Focus & activity'&&<div className="execution-layout">
+          <section className="panel execution-focus-panel">
+            <div className="panel-heading"><div><span className="section-kicker">FOCUS SESSION</span><h2>Protect one block of time</h2><p className="panel-subtitle">The timer saves only when you finish and log the session.</p></div><IconBadge className="purple"><Timer size={18}/></IconBadge></div>
+            <div className="execution-focus-body">
+              <div className="execution-clock"><span>{String(Math.floor(focusTimer.seconds/3600)).padStart(2,'0')}:{String(Math.floor((focusTimer.seconds%3600)/60)).padStart(2,'0')}:{String(focusTimer.seconds%60).padStart(2,'0')}</span><small>{focusTimer.running?'FOCUS IN PROGRESS':focusTimer.startedAt?'SESSION PAUSED':'READY TO FOCUS'}</small><div className="execution-clock-track"><span style={{width:`${Math.min(100,(focusTimer.seconds/1500)*100)}%`}}/></div><p>One task. One block. No invented study time.</p></div>
+              <div className="execution-controls">
+                <label>Focus title<input value={focusTimer.title} disabled={!!focusTimer.startedAt} onChange={e=>setFocusTimer(old=>({...old,title:e.target.value}))} placeholder="Deep work"/></label>
+                <label>Link a task<select aria-label="Link a task" value={focusTimer.taskId} disabled={!!focusTimer.startedAt} onChange={e=>setFocusTimer(old=>({...old,taskId:e.target.value}))}><option value="">Independent focus session</option>{openTasks.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select></label>
+                <label>Session note<input value={focusTimer.note} onChange={e=>setFocusTimer(old=>({...old,note:e.target.value}))} placeholder="What will you finish in this block?"/></label>
+                <div className="execution-buttons"><button className="primary-button" onClick={()=>setFocusTimer(old=>({...old,startedAt:old.startedAt||new Date().toISOString(),running:true}))} disabled={focusTimer.running}><Play size={14}/>{focusTimer.startedAt?'Resume timer':'Start focus'}</button><button className="secondary-button" onClick={()=>setFocusTimer(old=>({...old,running:false}))} disabled={!focusTimer.running}><Pause size={14}/> Pause</button><button className="secondary-button" onClick={finishFocusSession} disabled={!focusTimer.startedAt||focusTimer.seconds<1}><Square size={13}/> Finish & log</button></div>
+                <p className="execution-hint">If you refresh or close the page, an unfinished timer is restored as paused. Time away is not counted automatically.</p>
+              </div>
+            </div>
+          </section>
+          <section className="panel execution-stats-panel"><div className="panel-heading"><div><span className="section-kicker">MEASURED WORK</span><h2>Your focus stats</h2></div><Clock3 size={18} className="muted"/></div><div className="execution-stat-grid"><div><span>Focus minutes today</span><strong>{Math.round(focusSessions.filter(s=>localDateISO(new Date(s.endedAt))===todayISO()).reduce((n,s)=>n+s.durationSeconds,0)/60)}</strong></div><div><span>Sessions today</span><strong>{focusSessions.filter(s=>localDateISO(new Date(s.endedAt))===todayISO()).length}</strong></div><div><span>Total sessions</span><strong>{focusSessions.length}</strong></div><div><span>Total focus hours</span><strong>{(focusSessions.reduce((n,s)=>n+s.durationSeconds,0)/3600).toFixed(1)}</strong></div></div><div className="execution-callout"><Sparkles size={16}/><p><strong>Quality over the timer.</strong> Use session notes to record the outcome, not just the duration.</p></div></section>
+          <section className="panel execution-history-panel"><div className="panel-heading"><div><span className="section-kicker">FOCUS HISTORY</span><h2>Recent sessions</h2></div><span className="muted small">{focusSessions.length} logged</span></div>{focusSessions.length===0?<EmptyState icon={<Clock3 size={21}/>} title="No focus sessions yet" text="Start a timer, finish a block and log the work you actually did."/>:<div className="execution-session-list">{focusSessions.slice(0,10).map(s=><div className="execution-session-row" key={s.id}><IconBadge className="green"><Check size={16}/></IconBadge><div className="execution-item-main"><strong>{s.title}</strong><span>{new Date(s.endedAt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}{s.note?` | ${s.note}`:''}</span></div><strong className="execution-duration">{formatDuration(s.durationSeconds)}</strong></div>)}</div>}</section>
+          <section className="panel execution-activity-panel"><div className="panel-heading"><div><span className="section-kicker">REAL ACTIVITY</span><h2>Activity timeline</h2><p className="panel-subtitle">New completions from now on; no synthetic history is generated.</p></div><History size={18} className="muted"/></div>{activity.length===0?<EmptyState icon={<Activity size={21}/>} title="Your timeline starts here" text="Log a focus session, complete a task, finish a resource or solve a DSA problem."/>:<div className="execution-activity-list">{activity.slice(0,25).map(item=><div className="execution-activity-row" key={item.id}><span className={`execution-activity-mark ${item.kind}`}/><div className="execution-item-main"><strong>{item.title}</strong><span>{item.detail||item.kind}</span></div><time>{new Date(item.at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</time></div>)}</div>}</section>
+        </div>}
         {page==='Learning library'&&<section className="panel full-panel"><div className="panel-heading"><div><span className="section-kicker">CURATE YOUR INPUTS</span><h2>Resource library</h2><p className="panel-subtitle">Save a link, choose a category, then track it as queued, in progress, or complete.</p></div><button className="primary-button" onClick={()=>setShowResource(true)}><Plus size={16}/> Add resource</button></div><div className="library-toolbar"><div className="library-count"><strong>{resources.length}</strong> resources <span> | </span> {inProgress} in progress</div><select className="select-control" onChange={e=>setResourceCategory(e.target.value)} defaultValue="All categories"><option>All categories</option>{['DSA','AI / ML','Backend','System Design','Communication','Cloud','Frontend','Other'].map(c=><option key={c}>{c}</option>)}</select></div><div className="resource-grid">{filteredResources.map(r=><article className="resource-card" key={r.id}><div className="resource-card-top"><div className={`resource-icon large ${r.category==='DSA'?'violet':r.category==='AI / ML'?'green':r.category==='Cloud'?'orange':'blue'}`}>{r.category==='DSA'?<Code2 size={20}/>:r.category==='AI / ML'?<Sparkles size={20}/>:r.category==='Communication'?<MessageCircle size={20}/>:<BookOpen size={20}/>}</div><span className={`status-badge ${r.status.toLowerCase().replace(' ','-')}`}>{r.status}</span></div><span className="resource-category">{r.category}  |  {r.kind}</span><h3>{r.title}</h3><p>{r.provider}</p><div className="resource-progress-label"><span>Progress</span><strong>{r.progress}%</strong></div><Progress value={r.progress} tone={r.category==='AI / ML'?'green':'violet'}/><input className="resource-progress-slider" aria-label={`Progress for ${r.title}`} type="range" min="0" max="100" step="5" value={r.progress} onChange={e=>{const progress=Number(e.target.value);setResources(old=>old.map(x=>x.id===r.id?{...x,progress,status:progress===100?'Completed':progress>0?'In progress':'Queued'}:x))}}/><div className="resource-card-footer"><select aria-label={`Status for ${r.title}`} value={r.status} onChange={e=>updateResourceStatus(r.id,e.target.value as Resource['status'])}><option>Queued</option><option>In progress</option><option>Completed</option></select><a href={r.url} target="_blank" rel="noreferrer" className="open-resource">Open <ExternalLink size={13}/></a><button className="text-link" onClick={()=>setResources(old=>old.filter(x=>x.id!==r.id))}>Remove</button></div></article>)}{filteredResources.length===0&&<EmptyState icon={<Search size={22}/>} title="No matching resources" text="Try another search or add a new resource."/>}</div><div className="integration-callout"><div className="callout-symbol"><FolderKanban size={20}/></div><div><strong>Saved playlists aren't the same as completed learning.</strong><p>Keep a status and completion estimate. Later, sync playlist metadata from YouTube Data API and progress from supported providers.</p></div><button className="text-link" onClick={()=>setPage('Integrations')}>Integration plan <ArrowRight size={14}/></button></div></section>}
 
         {page==='DSA tracker'&&<section className="panel full-panel"><div className="panel-heading"><div><span className="section-kicker">PROBLEM LOG  |  REVISION</span><h2>Your DSA workspace</h2><p className="panel-subtitle">Add problems yourself. No example problems are preloaded.</p></div><button className="primary-button" onClick={()=>setShowProblem(true)}><Plus size={16}/> Add problem</button></div><div className="planner-overview"><div><span>Total logged</span><strong>{problems.length}</strong></div><div><span>Solved</span><strong>{problems.filter(p=>p.status==='Solved').length}</strong></div><div><span>To do</span><strong>{problems.filter(p=>p.status==='Todo').length}</strong></div><div><span>Needs revision</span><strong>{problems.filter(p=>p.nextReview&&p.nextReview<=todayISO()&&p.status==='Solved').length}</strong></div></div>{problems.length===0?<EmptyState icon={<Code2 size={22}/>} title="Your problem tracker is empty" text="Add your first LeetCode, Codeforces, or Striver problem. Nothing is prefilled."/>:<div className="problem-list">{problems.map(p=><div className="problem-row" key={p.id}><div className="problem-main"><strong>{p.title}</strong><span>{p.platform}  |  {p.topic}  |  {p.difficulty}{p.nextReview?`  |  Review ${prettyDate(p.nextReview)}`:''}</span></div>{p.url&&<a href={p.url} target="_blank" rel="noreferrer" className="open-resource">Open <ExternalLink size={13}/></a>}<select value={p.status} onChange={e=>updateProblem(p.id,e.target.value as Problem['status'])}><option>Todo</option><option>Attempted</option><option>Solved</option></select><button className="icon-button" aria-label="Delete problem" onClick={()=>setProblems(old=>old.filter(x=>x.id!==p.id))}><X size={15}/></button></div>)}</div>}</section>}

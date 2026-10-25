@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createClient, type Session } from '@supabase/supabase-js'
 import App from '../App'
 
-type WorkspaceData = { tasks: any[]; resources: any[]; goals: any[]; skills: any[]; problems: any[] }
+type WorkspaceData = { tasks: any[]; resources: any[]; goals: any[]; skills: any[]; problems: any[]; focusSessions: any[]; activity: any[] }
+// ASCEND EXECUTION ENGINE CLOUD V1
 type WorkspaceRow = { user_id: string; data: WorkspaceData; timezone: string; updated_at: string }
 const STORAGE_KEYS = {
   tasks: 'ascend.tasks',
@@ -10,11 +11,13 @@ const STORAGE_KEYS = {
   goals: 'ascend.goals',
   skills: 'ascend.skills',
   problems: 'ascend.problems',
+  focusSessions: 'ascend.focusSessions',
+  activity: 'ascend.activity',
 } as const
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() || ''
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || ''
 const supabase = SUPABASE_URL && ANON_KEY ? createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null
-const EMPTY: WorkspaceData = { tasks: [], resources: [], goals: [], skills: [], problems: [] }
+const EMPTY: WorkspaceData = { tasks: [], resources: [], goals: [], skills: [], problems: [], focusSessions: [], activity: [] }
 const OWNER_KEY = 'ascend.cloud.owner'
 
 function normalizeWorkspace(input: any): WorkspaceData {
@@ -26,6 +29,8 @@ function normalizeWorkspace(input: any): WorkspaceData {
     goals: Array.isArray(value.goals) ? value.goals.filter((x: any) => !(x?.id && knownSampleIds.has(x.id))) : [],
     skills: Array.isArray(value.skills) ? value.skills : [],
     problems: Array.isArray(value.problems) ? value.problems : [],
+    focusSessions: Array.isArray(value.focusSessions) ? value.focusSessions : [],
+    activity: Array.isArray(value.activity) ? value.activity : [],
   }
   return out
 }
@@ -57,6 +62,8 @@ function mergeWorkspace(remoteInput: WorkspaceData, localInput: WorkspaceData): 
     goals: mergeRows(remote.goals, local.goals, (x) => String(x.id || x.title)),
     skills: mergeRows(remote.skills, local.skills, (x) => String(x.name || '').toLowerCase()),
     problems: mergeRows(remote.problems, local.problems, (x) => String(x.id || x.title)),
+    focusSessions: mergeRows(remote.focusSessions, local.focusSessions, (x) => String(x.id || x.startedAt)),
+    activity: mergeRows(remote.activity, local.activity, (x) => String(x.id || x.at)),
   }
 }
 function downloadBackup(data = readLocal()) {
